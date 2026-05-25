@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SlipVault — อัพโหลดสลิป</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg2: #161b22;
+    --bg3: #1c2128;
+    --border: rgba(255,255,255,0.08);
+    --border-bright: rgba(255,255,255,0.15);
+    --gold: #d4a843;
+    --gold-light: #f0c96a;
+    --green: #3fb950;
+    --red: #f85149;
+    --blue: #388bfd;
+    --text: #e6edf3;
+    --text-muted: #7d8590;
+    --text-dim: #484f58;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --font: 'IBM Plex Sans Thai', sans-serif;
+    --mono: 'IBM Plex Mono', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  /* ─── Grain overlay ─── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  /* ─── Nav ─── */
+  nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(13, 17, 23, 0.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .nav-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+  }
+
+  .nav-logo .icon {
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, var(--gold) 0%, #a8742a 100%);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+
+  .nav-logo span {
+    font-weight: 700;
+    font-size: 18px;
+    letter-spacing: -0.5px;
+    color: var(--text);
+  }
+
+  .nav-logo span em {
+    font-style: normal;
+    color: var(--gold);
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 4px;
+  }
+
+  .nav-links a {
+    padding: 6px 14px;
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    color: var(--text-muted);
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.15s;
+  }
+
+  .nav-links a:hover { color: var(--text); background: var(--bg3); }
+  .nav-links a.active {
+    color: var(--gold);
+    background: rgba(212, 168, 67, 0.1);
+    border: 1px solid rgba(212, 168, 67, 0.2);
+  }
+
+  /* ─── Main layout ─── */
+  main {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 48px 24px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .page-header {
+    margin-bottom: 40px;
+    animation: fadeUp 0.5s ease both;
+  }
+
+  .page-header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 6px;
+  }
+
+  .page-header p {
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    background: rgba(212, 168, 67, 0.1);
+    color: var(--gold);
+    border: 1px solid rgba(212, 168, 67, 0.25);
+  }
+
+  /* ─── Grid ─── */
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  @media (max-width: 680px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+
+  /* ─── Card ─── */
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    transition: border-color 0.2s;
+    animation: fadeUp 0.5s ease both;
+  }
+
+  .card:hover { border-color: var(--border-bright); }
+
+  .card-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* ─── Drop Zone ─── */
+  .drop-zone {
+    border: 2px dashed var(--border-bright);
+    border-radius: var(--radius);
+    padding: 48px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: rgba(255,255,255,0.02);
+    position: relative;
+    overflow: hidden;
+    grid-column: 1 / -1;
+  }
+
+  .drop-zone::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(212,168,67,0.05), transparent 70%);
+    pointer-events: none;
+  }
+
+  .drop-zone.dragging {
+    border-color: var(--gold);
+    background: rgba(212, 168, 67, 0.05);
+    transform: scale(1.01);
+  }
+
+  .drop-zone.has-file {
+    border-color: rgba(63, 185, 80, 0.4);
+    background: rgba(63, 185, 80, 0.03);
+    padding: 16px;
+  }
+
+  .drop-icon {
+    font-size: 40px;
+    margin-bottom: 12px;
+    display: block;
+    opacity: 0.7;
+  }
+
+  .drop-text {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  .drop-hint {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  .drop-hint strong {
+    color: var(--gold);
+    cursor: pointer;
+  }
+
+  #file-input { display: none; }
+
+  /* ─── Preview ─── */
+  .preview-wrap {
+    display: none;
+    position: relative;
+    max-height: 300px;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+
+  .preview-wrap.visible { display: block; }
+
+  .preview-wrap img {
+    width: 100%;
+    max-height: 300px;
+    object-fit: contain;
+    background: #000;
+    border-radius: var(--radius-sm);
+  }
+
+  .preview-remove {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 28px;
+    height: 28px;
+    background: rgba(0,0,0,0.7);
+    border: 1px solid var(--border-bright);
+    border-radius: 50%;
+    color: var(--text);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+  }
+
+  .preview-remove:hover { background: rgba(248,81,73,0.3); }
+
+  .preview-pdf {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    background: var(--bg3);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+  }
+
+  .preview-pdf .pdf-icon { font-size: 32px; }
+
+  .preview-pdf .pdf-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    word-break: break-all;
+  }
+
+  .preview-pdf .pdf-size {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-family: var(--mono);
+  }
+
+  /* ─── Form ─── */
+  .form-group {
+    margin-bottom: 16px;
+  }
+
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    letter-spacing: 0.3px;
+  }
+
+  input, select, textarea {
+    width: 100%;
+    padding: 10px 14px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 14px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 3px rgba(212, 168, 67, 0.12);
+  }
+
+  textarea { resize: vertical; min-height: 80px; }
+
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 7L11 1' stroke='%237d8590' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+    cursor: pointer;
+  }
+
+  select option { background: var(--bg2); }
+
+  /* ─── Type Toggle ─── */
+  .type-toggle {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+
+  .type-btn {
+    padding: 10px 8px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg3);
+    color: var(--text-muted);
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .type-btn:hover { border-color: var(--border-bright); color: var(--text); }
+
+  .type-btn.active-income {
+    border-color: var(--green);
+    background: rgba(63, 185, 80, 0.1);
+    color: var(--green);
+  }
+
+  .type-btn.active-expense {
+    border-color: var(--red);
+    background: rgba(248, 81, 73, 0.1);
+    color: var(--red);
+  }
+
+  .type-btn.active-transfer {
+    border-color: var(--blue);
+    background: rgba(56, 139, 253, 0.1);
+    color: var(--blue);
+  }
+
+  /* ─── Submit Button ─── */
+  .btn-submit {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, var(--gold) 0%, #a8742a 100%);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: #0d1117;
+    font-family: var(--font);
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    letter-spacing: 0.3px;
+    margin-top: 24px;
+  }
+
+  .btn-submit:hover { opacity: 0.9; }
+  .btn-submit:active { transform: scale(0.99); }
+  .btn-submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* ─── Loading Spinner ─── */
+  .spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(0,0,0,0.2);
+    border-top-color: #000;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+
+  .btn-submit.loading .spinner { display: block; }
+  .btn-submit.loading .btn-text { opacity: 0.7; }
+
+  /* ─── Result Panel ─── */
+  #result-panel {
+    display: none;
+    grid-column: 1 / -1;
+    animation: fadeUp 0.4s ease both;
+  }
+
+  #result-panel.visible { display: block; }
+
+  .result-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .result-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .result-status.success {
+    background: rgba(63, 185, 80, 0.12);
+    color: var(--green);
+    border: 1px solid rgba(63, 185, 80, 0.25);
+  }
+
+  .result-status.error {
+    background: rgba(248, 81, 73, 0.12);
+    color: var(--red);
+    border: 1px solid rgba(248, 81, 73, 0.25);
+  }
+
+  .result-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .result-item {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+  }
+
+  .result-item .ri-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-dim);
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .result-item .ri-value {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .result-item.amount .ri-value {
+    font-size: 22px;
+    font-family: var(--mono);
+    color: var(--gold);
+  }
+
+  .ocr-raw {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 14px;
+    font-size: 13px;
+    color: var(--text-muted);
+    font-family: var(--mono);
+    white-space: pre-wrap;
+    max-height: 150px;
+    overflow-y: auto;
+    margin-top: 12px;
+  }
+
+  .toggle-raw {
+    font-size: 12px;
+    color: var(--text-muted);
+    cursor: pointer;
+    margin-top: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    user-select: none;
+    transition: color 0.15s;
+  }
+
+  .toggle-raw:hover { color: var(--text); }
+
+  /* ─── Error / Alert ─── */
+  .alert {
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .alert-error {
+    background: rgba(248,81,73,0.08);
+    border: 1px solid rgba(248,81,73,0.2);
+    color: #ffa09a;
+  }
+
+  /* ─── Processing overlay ─── */
+  .processing-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(13,17,23,0.85);
+    backdrop-filter: blur(8px);
+    z-index: 200;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+  }
+
+  .processing-overlay.visible { display: flex; }
+
+  .proc-spinner {
+    width: 52px;
+    height: 52px;
+    border: 3px solid rgba(212,168,67,0.15);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  .proc-text {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .proc-sub {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    text-align: center;
+  }
+
+  /* ─── Animations ─── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .card:nth-child(1) { animation-delay: 0.05s; }
+  .card:nth-child(2) { animation-delay: 0.1s; }
+  .card:nth-child(3) { animation-delay: 0.15s; }
+
+  /* ─── Progress steps ─── */
+  .steps {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+  }
+
+  .step {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .step-dot {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+
+  .step.done .step-dot { background: var(--green); color: #000; }
+  .step.active .step-dot { background: var(--gold); color: #000; }
+  .step.upcoming .step-dot { background: var(--bg3); border: 1px solid var(--border); color: var(--text-dim); }
+
+  .step-line { width: 24px; height: 1px; background: var(--border); }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="nav-logo">
+    <div class="icon">🧾</div>
+    <span>Slip<em>Vault</em></span>
+  </a>
+  <div class="nav-links">
+    <a href="/" class="active">อัพโหลด</a>
+    <a href="/dashboard.html">แดชบอร์ด</a>
+  </div>
+</nav>
+
+<main>
+  <div class="page-header">
+    <div class="badge">🔐 AksonOCR Powered</div>
+    <h1>อัพโหลดสลิปโอนเงิน</h1>
+    <p>อัปโหลดสลิป / ใบเสร็จ — ระบบจะอ่านข้อมูลอัตโนมัติและบันทึกลง Google Sheets</p>
+  </div>
+
+  <div class="steps">
+    <div class="step active">
+      <div class="step-dot">1</div>
+      <span>อัพโหลดไฟล์</span>
+    </div>
+    <div class="step-line"></div>
+    <div class="step upcoming">
+      <div class="step-dot">2</div>
+      <span>OCR อ่านข้อมูล</span>
+    </div>
+    <div class="step-line"></div>
+    <div class="step upcoming">
+      <div class="step-dot">3</div>
+      <span>บันทึก Google Sheets</span>
+    </div>
+  </div>
+
+  <div id="error-alert" class="alert alert-error" style="display:none">
+    <span>⚠️</span>
+    <span id="error-msg"></span>
+  </div>
+
+  <div class="grid">
+
+    <!-- Drop Zone -->
+    <div class="drop-zone" id="drop-zone">
+      <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp,application/pdf">
+      <div id="drop-default">
+        <span class="drop-icon">📄</span>
+        <div class="drop-text">วางไฟล์ที่นี่</div>
+        <div class="drop-hint">หรือ <strong onclick="document.getElementById('file-input').click()">เลือกไฟล์</strong> — JPG, PNG, WEBP, PDF (สูงสุด 10MB)</div>
+      </div>
+      <div class="preview-wrap" id="preview-wrap">
+        <img id="preview-img" src="" alt="preview">
+        <button class="preview-remove" id="preview-remove" title="เอาออก">✕</button>
+      </div>
+      <div id="preview-pdf" class="preview-pdf" style="display:none;">
+        <span class="pdf-icon">📋</span>
+        <div>
+          <div class="pdf-name" id="pdf-name"></div>
+          <div class="pdf-size" id="pdf-size"></div>
+        </div>
+        <button class="preview-remove" id="pdf-remove" title="เอาออก" style="position:static;margin-left:auto;">✕</button>
+      </div>
+    </div>
+
+    <!-- Form Left -->
+    <div class="card">
+      <div class="card-title">📊 ประเภทรายการ</div>
+
+      <div class="type-toggle">
+        <button class="type-btn active-expense" data-type="expense" onclick="setType('expense')">
+          💸 รายจ่าย
+        </button>
+        <button class="type-btn" data-type="income" onclick="setType('income')">
+          💰 รายรับ
+        </button>
+        <button class="type-btn" data-type="transfer" onclick="setType('transfer')">
+          🔄 โอนเงิน
+        </button>
+      </div>
+
+      <div class="form-group">
+        <label>หมวดหมู่</label>
+        <select id="category">
+          <option value="อาหารและเครื่องดื่ม">🍜 อาหารและเครื่องดื่ม</option>
+          <option value="การเดินทาง">🚗 การเดินทาง</option>
+          <option value="ช้อปปิ้ง">🛍️ ช้อปปิ้ง</option>
+          <option value="สาธารณูปโภค">💡 สาธารณูปโภค</option>
+          <option value="ค่าเช่า">🏠 ค่าเช่า</option>
+          <option value="การแพทย์">🏥 การแพทย์</option>
+          <option value="บันเทิง">🎮 บันเทิง</option>
+          <option value="โอนเงิน">💳 โอนเงิน</option>
+          <option value="เงินเดือน/รายได้">💼 เงินเดือน/รายได้</option>
+          <option value="อื่นๆ" selected>📌 อื่นๆ</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>หมายเหตุ (ไม่บังคับ)</label>
+        <textarea id="note" placeholder="เช่น ค่าอาหารกลางวัน, จ่ายค่าน้ำ..."></textarea>
+      </div>
+
+      <button class="btn-submit" id="submit-btn" onclick="submitForm()">
+        <div class="spinner"></div>
+        <span class="btn-text">🔍 อ่านและบันทึกข้อมูล</span>
+      </button>
+    </div>
+
+    <!-- Info Card Right -->
+    <div class="card">
+      <div class="card-title">ℹ️ ข้อมูลที่ระบบจะอ่าน</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="result-item">
+          <div class="ri-label">💰 ยอดเงิน</div>
+          <div class="ri-value" style="font-size:13px;color:var(--text-muted)">จากสลิป/ใบเสร็จ</div>
+        </div>
+        <div class="result-item">
+          <div class="ri-label">📅 วันที่/เวลา</div>
+          <div class="ri-value" style="font-size:13px;color:var(--text-muted)">วันที่ทำรายการ</div>
+        </div>
+        <div class="result-item">
+          <div class="ri-label">🏦 ธนาคาร</div>
+          <div class="ri-value" style="font-size:13px;color:var(--text-muted)">ต้นทาง / ปลายทาง</div>
+        </div>
+        <div class="result-item">
+          <div class="ri-label">🔖 เลขอ้างอิง</div>
+          <div class="ri-value" style="font-size:13px;color:var(--text-muted)">Reference number</div>
+        </div>
+        <div class="result-item">
+          <div class="ri-label">👤 ผู้รับเงิน</div>
+          <div class="ri-value" style="font-size:13px;color:var(--text-muted)">ชื่อร้าน/บุคคล</div>
+        </div>
+      </div>
+      <div style="margin-top:16px;padding:12px;background:rgba(212,168,67,0.06);border:1px solid rgba(212,168,67,0.15);border-radius:8px;font-size:12px;color:var(--text-muted);">
+        🤖 ใช้ <strong style="color:var(--gold);">AksonOCR AI</strong><br>
+        แม่นยำ 99% สำหรับภาษาไทย<br>
+        รองรับสลิปทุกธนาคาร + PromptPay
+      </div>
+    </div>
+
+    <!-- Result Panel -->
+    <div id="result-panel" class="card">
+      <div class="result-header">
+        <div class="result-status success" id="result-status">
+          ✅ บันทึกข้อมูลสำเร็จ
+        </div>
+      </div>
+
+      <div class="result-grid" id="result-grid">
+        <!-- Filled by JS -->
+      </div>
+
+      <span class="toggle-raw" id="toggle-raw" onclick="toggleRaw()">
+        ▶ ดู OCR Raw Text
+      </span>
+      <pre class="ocr-raw" id="ocr-raw" style="display:none;"></pre>
+
+      <button class="btn-submit" style="margin-top:16px;background:var(--bg3);color:var(--text);border:1px solid var(--border);" onclick="resetForm()">
+        ➕ อัพโหลดสลิปใหม่
+      </button>
+    </div>
+
+  </div>
+</main>
+
+<!-- Processing Overlay -->
+<div class="processing-overlay" id="proc-overlay">
+  <div class="proc-spinner"></div>
+  <div>
+    <div class="proc-text">🔍 กำลังอ่านข้อมูลจากสลิป...</div>
+    <div class="proc-sub">AksonOCR กำลังวิเคราะห์ภาพ<br>กรุณารอสักครู่</div>
+  </div>
+</div>
+
+<script>
+  let selectedFile = null;
+  let selectedType = 'expense';
+
+  // ─── Type Toggle ───────────────────────────────────────────────────
+  function setType(type) {
+    selectedType = type;
+    document.querySelectorAll('.type-btn').forEach(btn => {
+      btn.classList.remove('active-income', 'active-expense', 'active-transfer');
+      if (btn.dataset.type === type) {
+        btn.classList.add(`active-${type}`);
+      }
+    });
+    // Update category options
+    const catEl = document.getElementById('category');
+    if (type === 'income') {
+      catEl.value = 'เงินเดือน/รายได้';
+    } else if (type === 'transfer') {
+      catEl.value = 'โอนเงิน';
+    }
+  }
+
+  // ─── Drag & Drop ───────────────────────────────────────────────────
+  const dropZone = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('file-input');
+
+  dropZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropZone.classList.add('dragging');
+  });
+
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragging'));
+
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragging');
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  });
+
+  dropZone.addEventListener('click', e => {
+    if (e.target.closest('.preview-remove, #preview-remove, #pdf-remove')) return;
+    if (!selectedFile) fileInput.click();
+  });
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) handleFile(fileInput.files[0]);
+  });
+
+  document.getElementById('preview-remove').addEventListener('click', e => {
+    e.stopPropagation();
+    resetFile();
+  });
+  document.getElementById('pdf-remove').addEventListener('click', e => {
+    e.stopPropagation();
+    resetFile();
+  });
+
+  function handleFile(file) {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+    if (!allowed.includes(file.type)) {
+      showError('ประเภทไฟล์ไม่รองรับ กรุณาใช้ JPG, PNG, WEBP หรือ PDF');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      showError('ไฟล์ใหญ่เกิน 10MB');
+      return;
+    }
+
+    selectedFile = file;
+    hideError();
+
+    const defaultEl = document.getElementById('drop-default');
+    const previewWrap = document.getElementById('preview-wrap');
+    const previewPdf = document.getElementById('preview-pdf');
+
+    defaultEl.style.display = 'none';
+    dropZone.classList.add('has-file');
+
+    if (file.type === 'application/pdf') {
+      previewWrap.classList.remove('visible');
+      previewPdf.style.display = 'flex';
+      document.getElementById('pdf-name').textContent = file.name;
+      document.getElementById('pdf-size').textContent = formatSize(file.size);
+    } else {
+      previewPdf.style.display = 'none';
+      const reader = new FileReader();
+      reader.onload = e => {
+        document.getElementById('preview-img').src = e.target.result;
+        previewWrap.classList.add('visible');
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  function resetFile() {
+    selectedFile = null;
+    fileInput.value = '';
+    dropZone.classList.remove('has-file');
+    document.getElementById('drop-default').style.display = 'block';
+    document.getElementById('preview-wrap').classList.remove('visible');
+    document.getElementById('preview-pdf').style.display = 'none';
+    document.getElementById('preview-img').src = '';
+  }
+
+  // ─── Submit ────────────────────────────────────────────────────────
+  async function submitForm() {
+    if (!selectedFile) {
+      showError('กรุณาเลือกไฟล์สลิปก่อน');
+      return;
+    }
+
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    btn.classList.add('loading');
+    btn.querySelector('.btn-text').textContent = 'กำลังส่งข้อมูล...';
+    document.getElementById('proc-overlay').classList.add('visible');
+
+    // Update steps
+    updateSteps(2);
+
+    const fd = new FormData();
+    fd.append('slip', selectedFile);
+    fd.append('type', selectedType);
+    fd.append('category', document.getElementById('category').value);
+    fd.append('note', document.getElementById('note').value);
+
+    try {
+      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      const json = await res.json();
+
+      document.getElementById('proc-overlay').classList.remove('visible');
+
+      if (json.success) {
+        updateSteps(3);
+        showResult(json.data);
+      } else {
+        throw new Error(json.error);
+      }
+    } catch (err) {
+      document.getElementById('proc-overlay').classList.remove('visible');
+      showError('เกิดข้อผิดพลาด: ' + err.message);
+      updateSteps(1);
+    } finally {
+      btn.disabled = false;
+      btn.classList.remove('loading');
+      btn.querySelector('.btn-text').textContent = '🔍 อ่านและบันทึกข้อมูล';
+    }
+  }
+
+  // ─── Steps ────────────────────────────────────────────────────────
+  function updateSteps(active) {
+    const steps = document.querySelectorAll('.step');
+    steps.forEach((s, i) => {
+      s.classList.remove('done', 'active', 'upcoming');
+      if (i + 1 < active) s.classList.add('done');
+      else if (i + 1 === active) s.classList.add('active');
+      else s.classList.add('upcoming');
+    });
+  }
+
+  // ─── Result Display ────────────────────────────────────────────────
+  function showResult(data) {
+    const panel = document.getElementById('result-panel');
+    panel.classList.add('visible');
+    panel.style.display = 'block';
+
+    const grid = document.getElementById('result-grid');
+    const items = [
+      { label: '💰 ยอดเงิน', value: data.amount ? `฿${Number(data.amount).toLocaleString('th-TH', {minimumFractionDigits:2})}` : '—', cls: 'amount' },
+      { label: '📅 วันที่', value: data.transactionDate || '—' },
+      { label: '⏰ เวลา', value: data.transactionTime || '—' },
+      { label: '🏦 ธนาคารต้นทาง', value: data.bankSender || '—' },
+      { label: '🏦 ธนาคารปลายทาง', value: data.bankReceiver || '—' },
+      { label: '👤 ผู้รับ/ร้านค้า', value: data.merchant || '—' },
+      { label: '🔖 เลขอ้างอิง', value: data.reference || '—' },
+      { label: '📌 หมวดหมู่', value: data.category || '—' },
+    ];
+
+    grid.innerHTML = items.map(item => `
+      <div class="result-item ${item.cls || ''}">
+        <div class="ri-label">${item.label}</div>
+        <div class="ri-value">${item.value}</div>
+      </div>
+    `).join('');
+
+    if (data.ocrText) {
+      document.getElementById('ocr-raw').textContent = data.ocrText;
+    }
+
+    const statusEl = document.getElementById('result-status');
+    if (data.status === 'manual_review') {
+      statusEl.innerHTML = '⚠️ บันทึกแล้ว — ตรวจสอบข้อมูลด้วยตนเอง';
+      statusEl.className = 'result-status';
+      statusEl.style.cssText = 'background:rgba(212,168,67,0.1);color:var(--gold);border:1px solid rgba(212,168,67,0.25);';
+    }
+
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function toggleRaw() {
+    const raw = document.getElementById('ocr-raw');
+    const btn = document.getElementById('toggle-raw');
+    if (raw.style.display === 'none') {
+      raw.style.display = 'block';
+      btn.textContent = '▼ ซ่อน OCR Raw Text';
+    } else {
+      raw.style.display = 'none';
+      btn.textContent = '▶ ดู OCR Raw Text';
+    }
+  }
+
+  function resetForm() {
+    resetFile();
+    document.getElementById('result-panel').classList.remove('visible');
+    document.getElementById('result-panel').style.display = 'none';
+    document.getElementById('note').value = '';
+    setType('expense');
+    updateSteps(1);
+    hideError();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // ─── Helpers ───────────────────────────────────────────────────────
+  function showError(msg) {
+    const el = document.getElementById('error-alert');
+    document.getElementById('error-msg').textContent = msg;
+    el.style.display = 'flex';
+  }
+
+  function hideError() {
+    document.getElementById('error-alert').style.display = 'none';
+  }
+
+  function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  // Paste from clipboard
+  document.addEventListener('paste', e => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        handleFile(item.getAsFile());
+        break;
+      }
+    }
+  });
+
+  updateSteps(1);
+</script>
+</body>
+</html>
