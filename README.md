@@ -2,7 +2,7 @@
 
 # 🚀 Receipt OCR Automation Platform
 
-ระบบเว็บแอพสำหรับอัพโหลดสลิปโอนเงิน / ใบเสร็จ แล้วอ่านข้อมูลด้วย OCR อัตโนมัติ จากนั้นบันทึกข้อมูลลง Google Sheets และแสดงผลผ่าน Dashboard
+ระบบเว็บแอพสำหรับอัพโหลดสลิปโอนเงิน แล้วอ่านข้อมูลด้วย OCR อัตโนมัติ จากนั้นบันทึกข้อมูลลง Google Sheets และแสดงผลผ่าน Dashboard
 
 รองรับการ deploy บน Railway พร้อมเชื่อมต่อ n8n automation workflow ได้ทันที
 
