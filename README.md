@@ -1,215 +1,468 @@
-# 🧾 SlipVault — ระบบอัพโหลดสลิปโอนเงินอัตโนมัติ
+# receipt-ocr-railway
 
-> อัพโหลดสลิป → OCR อ่านข้อมูล (AksonOCR) → บันทึก Google Sheets → ดูแดชบอร์ด
+# 🚀 Receipt OCR Automation Platform
+
+ระบบเว็บแอพสำหรับอัพโหลดสลิปโอนเงิน / ใบเสร็จ แล้วอ่านข้อมูลด้วย OCR อัตโนมัติ จากนั้นบันทึกข้อมูลลง Google Sheets และแสดงผลผ่าน Dashboard
+
+รองรับการ deploy บน Railway พร้อมเชื่อมต่อ n8n automation workflow ได้ทันที
 
 ---
 
-## 🏗️ Architecture
+# ✨ Features
 
+## 📤 Upload Slip / Receipt
+
+ผู้ใช้สามารถอัพโหลด:
+
+* สลิปโอนเงิน
+* ใบเสร็จ
+* ใบกำกับภาษี
+* รูปภาพ JPG / PNG / WEBP
+* PDF
+
+ผ่าน Web App ได้ทันที
+
+---
+
+## 🤖 OCR Extraction with AksonOCR
+
+ระบบใช้ AksonOCR เพื่ออ่านข้อความและแยกข้อมูลอัตโนมัติ เช่น:
+
+| Field            | Description  |
+| ---------------- | ------------ |
+| transaction_date | วันที่รายการ |
+| transaction_time | เวลารายการ   |
+| payer_name       | ผู้จ่าย      |
+| payee_name       | ผู้รับ       |
+| amount           | จำนวนเงิน    |
+| bank_name        | ธนาคาร       |
+| reference_no     | เลขอ้างอิง   |
+
+---
+
+## 📊 Dashboard รายรับรายจ่าย
+
+Dashboard แสดงข้อมูลจาก Google Sheets แบบ realtime ผ่าน n8n webhook
+
+แสดง:
+
+* รายรับรวม
+* รายจ่ายรวม
+* ยอดสุทธิ
+* ตารางรายการทั้งหมด
+* Search
+* Filter รายรับ / รายจ่าย
+
+---
+
+## ☁️ Google Drive Storage
+
+ไฟล์ที่อัพโหลดทั้งหมดจะ:
+
+* Upload เข้า Google Drive
+* เก็บ URL ไฟล์
+* เปิดดูย้อนหลังได้
+* เชื่อมกับข้อมูล OCR
+
+---
+
+# 🏗 System Architecture
+
+```text
+User Upload
+↓
+Railway Web App
+↓
+n8n Webhook
+↓
+Google Drive Upload
+↓
+AksonOCR
+↓
+Format Data
+↓
+Google Sheets
+↓
+Dashboard
 ```
-[Web App (Railway)]
-       ↓ POST multipart/form-data
-[n8n Webhook: upload-slip]
-       ↓ base64 image
-[AksonOCR API]
-       ↓ markdown OCR text
-[n8n Code: Parse data]
-       ↓ structured row
-[Google Sheets]
-       ↑ GET data (dashboard)
-[n8n Webhooks: get-transactions / get-summary]
+
+---
+
+# 📁 Project Structure
+
+```text
+receipt-ocr-railway/
+│
+├── public/
+│   ├── index.html
+│   ├── dashboard.html
+│   ├── style.css
+│   └── app.js
+│
+├── server.js
+├── package.json
+├── railway.json
+├── .env.example
+├── .gitignore
+├── README.md
+├── n8n-upload-workflow.json
+└── n8n-dashboard-workflow.json
 ```
 
 ---
 
-## 📋 Google Sheets Structure
+# 📄 Google Sheet Columns
 
-สร้างชีตชื่อ **`Transactions`** และ Row 1 เป็น Header ดังนี้:
+สร้าง Google Sheet แล้วใส่ header แถวแรกตามนี้:
 
-| คอลัมน์ | ชื่อ Header | ตัวอย่าง |
-|---------|------------|---------|
-| A | ID | SV-1718000000000 |
-| B | Uploaded At | 2024-06-01T10:30:00.000Z |
-| C | Transaction Date | 01/06/2024 |
-| D | Transaction Time | 10:25:30 |
-| E | Amount | 1500.00 |
-| F | Type | expense |
-| G | Category | อาหารและเครื่องดื่ม |
-| H | Merchant / Payee | ร้านอาหาร ABC |
-| I | Bank Sender | ธ.กสิกรไทย (KBANK) |
-| J | Bank Receiver | ธ.ไทยพาณิชย์ (SCB) |
-| K | Account Number | 012-3-45678-9 |
-| L | Reference No | REF202406011025300001 |
-| M | Note | ค่าอาหารกลางวัน |
-| N | OCR Raw Text | โอนเงินสำเร็จ วันที่... |
-| O | File Name | slip_001.jpg |
-| P | Status | processed |
-
----
-
-## 🚀 Step-by-Step Setup
-
-### STEP 1 — สมัคร AksonOCR
-
-1. ไปที่ https://dashboard.aksonocr.com
-2. สมัครสมาชิก (ฟรี 100 หน้า/วัน)
-3. สร้าง **API Key**
-4. คัดลอก API Key ไว้ใช้ใน n8n
+```text
+id
+created_at
+uploaded_by
+document_type
+transaction_type
+category
+transaction_date
+transaction_time
+payer_name
+payee_name
+amount
+bank_name
+reference_no
+file_url
+ocr_text
+status
+```
 
 ---
 
-### STEP 2 — เตรียม Google Sheets
+# ⚙️ Environment Variables
 
-1. สร้าง Google Sheet ใหม่
-2. เปลี่ยนชื่อ Sheet แรกเป็น **`Transactions`**
-3. Row 1: ใส่ชื่อ Header ตามตารางด้านบนทุกคอลัมน์ A–P
-4. คัดลอก **Spreadsheet ID** จาก URL:
-   ```
-   https://docs.google.com/spreadsheets/d/[SPREADSHEET_ID]/edit
-   ```
+เพิ่ม Variables บน Railway:
 
----
-
-### STEP 3 — ตั้งค่า n8n
-
-#### 3.1 Import Workflows
-1. เปิด n8n Dashboard
-2. ไป **Workflows** → **Import from File**
-3. เลือกไฟล์ `n8n-workflow.json`
-4. จะได้ 3 workflows: Upload, Get Transactions, Get Summary
-
-#### 3.2 ตั้งค่า Credentials
-
-**AksonOCR API Key:**
-1. ไป **Settings** → **Credentials** → **Add Credential**
-2. เลือก **HTTP Header Auth**
-3. ตั้งชื่อ: `AksonOCR API Key`
-4. Name: `X-API-Key`
-5. Value: `[API Key ที่ได้จาก AksonOCR]`
-
-**Google Sheets (OAuth2):**
-1. ไป **Settings** → **Credentials** → **Add Credential**
-2. เลือก **Google Sheets OAuth2 API**
-3. ตั้งชื่อ: `Google Sheets (OAuth2)`
-4. ทำตามขั้นตอน OAuth เชื่อมต่อ Google Account
-
-#### 3.3 แก้ไข Google Sheet ID
-ใน **3 workflows** ทุก node ชื่อ `Google Sheets - ...`:
-- เปลี่ยน `YOUR_GOOGLE_SHEET_ID` → Spreadsheet ID ของคุณ
-
-#### 3.4 Activate Workflows
-กด **Active** ใน 3 workflows ทั้งหมด
-
-#### 3.5 Copy Webhook URLs
-จาก workflow **"Upload & Process Slip"**, node **Webhook**:
-- คัดลอก **Production URL** เช่น:
-  ```
-  https://your-n8n.com/webhook/upload-slip
-  ```
+```env
+N8N_WEBHOOK_URL=https://YOUR-N8N-DOMAIN/webhook/receipt-upload
+N8N_TRANSACTIONS_URL=https://YOUR-N8N-DOMAIN/webhook/transactions
+MAX_FILE_SIZE_MB=10
+NODE_ENV=production
+```
 
 ---
 
-### STEP 4 — Deploy Web App บน Railway
+# 🧩 n8n Workflows
 
-#### 4.1 Push code ขึ้น GitHub
+## 1. Upload Workflow
+
+Workflow สำหรับ:
+
+* รับไฟล์จากเว็บ
+* Upload เข้า Google Drive
+* OCR ด้วย AksonOCR
+* Format ข้อมูล
+* บันทึกลง Google Sheets
+
+Flow:
+
+```text
+Webhook
+↓
+Prepare Input
+↓
+Upload to Google Drive
+↓
+Akson OCR
+↓
+Format Data
+↓
+Google Sheets
+↓
+Respond to Webhook
+```
+
+Import ไฟล์:
+
+```text
+n8n-upload-workflow.json
+```
+
+---
+
+## 2. Dashboard Workflow
+
+Workflow สำหรับดึงข้อมูลจาก Google Sheets มาแสดงหน้า Dashboard
+
+Flow:
+
+```text
+Webhook GET /transactions
+↓
+Google Sheets Get Rows
+↓
+Respond to Webhook
+```
+
+Import ไฟล์:
+
+```text
+n8n-dashboard-workflow.json
+```
+
+---
+
+# 🔑 AksonOCR Setup
+
+Endpoint:
+
+```text
+https://backend.aksonocr.com/api/v1/key-extract
+```
+
+Header:
+
+```text
+X-API-Key: YOUR_API_KEY
+```
+
+customFields:
+
+```json
+[
+  {
+    "key": "transaction_date",
+    "description": "วันที่ทำรายการ วันที่โอนเงิน หรือวันที่ออกใบเสร็จ"
+  },
+  {
+    "key": "transaction_time",
+    "description": "เวลาทำรายการหรือเวลาโอนเงิน ถ้ามี"
+  },
+  {
+    "key": "payer_name",
+    "description": "ชื่อผู้จ่ายเงิน ผู้โอนเงิน หรือบัญชีต้นทาง"
+  },
+  {
+    "key": "payee_name",
+    "description": "ชื่อผู้รับเงิน ร้านค้า บริษัท หรือบัญชีปลายทาง"
+  },
+  {
+    "key": "amount",
+    "description": "ยอดเงินรวมสุทธิ ให้ตอบเป็นตัวเลขเท่านั้น"
+  },
+  {
+    "key": "bank_name",
+    "description": "ชื่อธนาคาร ถ้ามี"
+  },
+  {
+    "key": "reference_no",
+    "description": "เลขอ้างอิงธุรกรรม เลขสลิป หรือเลขที่ใบเสร็จ"
+  }
+]
+```
+
+---
+
+# 💻 Local Development
+
+## Install Dependencies
+
 ```bash
-# ใน folder slip-tracker/
+npm install
+```
+
+---
+
+## Start Server
+
+```bash
+npm start
+```
+
+เปิด:
+
+```text
+http://localhost:3000
+```
+
+---
+
+# 🚂 Deploy on Railway
+
+## 1. Push to GitHub
+
+```bash
 git init
 git add .
-git commit -m "initial: SlipVault web app"
-
-# สร้าง repo บน GitHub แล้ว push
-git remote add origin https://github.com/YOUR_USERNAME/slip-tracker.git
+git commit -m "initial commit"
 git branch -M main
+git remote add origin YOUR_GITHUB_REPO
 git push -u origin main
 ```
 
-#### 4.2 Deploy บน Railway
-1. ไปที่ https://railway.app
-2. **New Project** → **Deploy from GitHub repo**
-3. เลือก repo `slip-tracker`
-4. Railway จะตรวจพบ Dockerfile อัตโนมัติ
+---
 
-#### 4.3 ตั้งค่า Environment Variables บน Railway
-ไป **Variables** → เพิ่ม:
+## 2. Deploy Railway
 
-| Key | Value |
-|-----|-------|
-| `N8N_WEBHOOK_URL` | `https://your-n8n.com/webhook/upload-slip` |
-| `N8N_BASE_URL` | `https://your-n8n.com` |
-| `PORT` | `3000` |
-
-#### 4.4 Generate Domain
-ไป **Settings** → **Networking** → **Generate Domain**
-ได้ URL เช่น: `https://slip-tracker-production.up.railway.app`
+1. Login Railway
+2. New Project
+3. Deploy from GitHub Repo
+4. Select repository
+5. Add Variables
+6. Deploy
 
 ---
 
-### STEP 5 — ทดสอบระบบ
+# 🌐 Web Pages
 
-1. เปิด web app URL
-2. อัพโหลดสลิป (JPG/PNG/PDF)
-3. ตรวจสอบผลลัพธ์ที่หน้าเว็บ
-4. เปิด Google Sheets ดูข้อมูลที่บันทึก
-5. เปิด `/dashboard.html` ดูแดชบอร์ด
-
----
-
-## 🔧 Troubleshooting
-
-**n8n ไม่รับไฟล์:**
-- ตรวจสอบ `N8N_WEBHOOK_URL` ถูกต้องหรือไม่
-- ตรวจสอบ n8n workflow ถูก activate แล้ว
-
-**AksonOCR error:**
-- ตรวจสอบ API Key ถูกต้อง
-- ตรวจสอบ credit ใน AksonOCR Dashboard
-
-**Google Sheets ไม่บันทึก:**
-- ตรวจสอบ Spreadsheet ID ถูกต้อง
-- ตรวจสอบ OAuth credentials
-- ตรวจสอบ Sheet ชื่อ `Transactions` ตรงกัน
-- ตรวจสอบ Header Row 1 ตรงกับ n8n mapping
-
-**Dashboard ไม่แสดงข้อมูล:**
-- ตรวจสอบ `N8N_BASE_URL` ถูกต้อง
-- ทดสอบ webhook URL โดยตรงใน browser
+| URL             | Description  |
+| --------------- | ------------ |
+| /               | Upload Page  |
+| /dashboard.html | Dashboard    |
+| /health         | Health Check |
 
 ---
 
-## 📁 Project Structure
+# 🔌 API Endpoints
 
+## Upload File
+
+```text
+POST /upload
 ```
-slip-tracker/
-├── server.js           Express web server
-├── package.json
-├── Dockerfile
-├── railway.toml
-├── .env.example
-├── .gitignore
-├── public/
-│   ├── index.html      หน้าอัพโหลดสลิป
-│   └── dashboard.html  แดชบอร์ดรายรับ-รายจ่าย
-└── n8n-workflow.json   Import ลง n8n (3 workflows)
+
+Form Data:
+
+| Field            | Description              |
+| ---------------- | ------------------------ |
+| file             | ไฟล์สลิปหรือใบเสร็จ      |
+| uploaded_by      | ผู้บันทึก                |
+| document_type    | slip / receipt / invoice |
+| transaction_type | income / expense         |
+| category         | หมวดหมู่                 |
+| description      | หมายเหตุ                 |
+
+---
+
+## Get Transactions
+
+```text
+GET /api/transactions
 ```
 
 ---
 
-## 🔌 API Endpoints (Web App)
+# 🎨 UI Design
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/upload` | อัพโหลดสลิป → n8n → OCR → Sheets |
-| GET | `/api/transactions` | ดึงรายการทั้งหมด |
-| GET | `/api/summary` | ดึงสรุปรายรับ-รายจ่าย |
-| GET | `/health` | Health check |
+UI ถูกออกแบบแนว modern SaaS dashboard:
+
+* Glassmorphism
+* Soft gradients
+* Responsive layout
+* Mobile-first
+* Dashboard cards
+* Animated transitions
+* Upload preview
+* OCR Result Card
 
 ---
 
-## 📌 n8n Webhook Paths
+# 📱 Responsive Design
 
-| Webhook | Method | Description |
-|---------|--------|-------------|
-| `/webhook/upload-slip` | POST | รับไฟล์ → OCR → บันทึก Sheets |
-| `/webhook/slip-get-transactions` | GET | ดึงข้อมูลทั้งหมด |
-| `/webhook/slip-get-summary` | GET | สรุปยอดรายรับ-รายจ่าย |
+รองรับ:
+
+* Mobile
+* Tablet
+* Desktop
+
+---
+
+# 🔒 Security Recommendations
+
+ก่อนใช้งาน production จริง แนะนำเพิ่ม:
+
+* Authentication
+* จำกัด file size
+* Validate file type
+* Private Google Drive Folder
+* Hide Webhook URL
+* Rate limiting
+* Duplicate slip detection
+
+---
+
+# 🚀 Future Improvements
+
+สามารถต่อยอดได้:
+
+* Multi-user
+* LINE Notify
+* Telegram Bot
+* Email Reports
+* PDF Export
+* AI Categorization
+* Expense Analytics
+* Monthly Charts
+* Accounting Integration
+* AI Accounting Assistant
+
+---
+
+# 🛠 Tech Stack
+
+| Technology    | Usage        |
+| ------------- | ------------ |
+| Node.js       | Backend      |
+| Express       | API Server   |
+| n8n           | Automation   |
+| Railway       | Hosting      |
+| Google Sheets | Database     |
+| Google Drive  | File Storage |
+| AksonOCR      | OCR          |
+| HTML/CSS/JS   | Frontend     |
+
+---
+
+# 📌 Example Workflow
+
+```text
+User Upload Slip
+↓
+Express API Receive File
+↓
+Send to n8n
+↓
+Upload Google Drive
+↓
+OCR Extract
+↓
+Save Google Sheets
+↓
+Dashboard Update
+```
+
+---
+
+# ❤️ Credits
+
+Built with:
+
+* n8n
+* AksonOCR
+* Railway
+* Google Sheets
+* Google Drive
+* Node.js
+
+---
+
+# 📬 Support
+
+หากต้องการต่อยอด:
+
+* Authentication
+* AI Categorization
+* LINE Bot
+* Telegram
+* PDF Reports
+* Accounting Integration
+* Mobile App
+
+สามารถพัฒนาต่อจากระบบนี้ได้ทันที 🚀
